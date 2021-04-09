@@ -1,15 +1,23 @@
-
-
 import groovy.sql.Sql
+import groovy.yaml.YamlSlurper
+
+import java.time.LocalDate
 
 class Main {
+
     static void main(String[] args) {
-        def path = System.getProperty("user.home") + '/clob-files/'
+        println('Application start')
+
+        def path = "${System.getProperty("user.home")}/registries_${LocalDate.now()}/"
         new File(path).mkdirs()
 
-        def sql = Sql.newInstance("jdbc:oracle:thin:@pri4acq.online-acq.local:1522:PRI4ACQ", "MIR", "MIR", "oracle.jdbc.OracleDriver")
+        def props = getProps()
 
-        def rows = sql.rows("select * from mir.POS_REGISTRY_FILES prf where prf.PROGRAM_TYPE = 'KFC' and prf.FDAY between to_date('2020-11-01', 'yyyy-mm-dd') and to_date('2020-11-02', 'yyyy-mm-dd')")
+        def sql = Sql.newInstance(props.url, props.username, props.password, props.className)
+
+        def rows = sql.rows("select * from mir.POS_REGISTRY_FILES prf where prf.PROGRAM_TYPE = 'KFC' and prf.FDAY between to_date('${props.fromDate}', 'yyyy-mm-dd') and to_date('${props.toDate}', 'yyyy-mm-dd')")
+
+        println('Rows size = ' + rows.size())
 
         rows.each {
             def filename = it.get('FILENAME') as String
@@ -18,6 +26,26 @@ class Main {
             def file = new File(path + filename)
             file.createNewFile()
             file.write(clob.characterStream.text)
+
+            println("${filename} successfully saved")
         }
+
+        println('Application end')
+    }
+
+    static Props getProps() {
+        def ys = new YamlSlurper()
+        Props props = ys.parse(getClass().getResource('/props.yml').newInputStream()) as Props
+
+        return props
+    }
+
+    static class Props {
+        private String url
+        private String username
+        private String password
+        private String className
+        private String fromDate
+        private String toDate
     }
 }
